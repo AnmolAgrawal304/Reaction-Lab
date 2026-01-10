@@ -38,12 +38,23 @@ public class GameManager : MonoBehaviour
     private float _roundStartTime; // Track reaction time
 
     [Header("Difficulty Settings")]
-    public float TileFadeDuration = 0.5f; // Tiles disapper in 3 seconds
+    public float TileFadeDuration = 2.0f; // Tiles disapper seconds
+    public float minFadeDuration = 0.5f; // Hardest possible setting (fastest fade)
+    public float maxFadeDuration = 3.0f; // Easiest possible setting (slowest fade)
+    public float difficultyStep = 0.25f; // How much to change duration by each time
+
+    [Header("Adaptive Difficulty Logic")]
+    public int historySize = 5; // How many past rounds to remember
+    public int thresholdsScoreHigh = 80; // Average score above this = get harder
+    public int thresholdScoreLow = 40;  // Average score below this = get easier
+
+    private List<int> scoreHistory = new List<int>(); // List to store past scores
 
     private List<GameObject> _activeTiles = new List<GameObject>();
 
     private void Start()
     {
+        scoreHistory.Clear();
         _currentScore = 0;
         UpdateScoreUI();    
         StartNewRound();
@@ -137,11 +148,15 @@ public class GameManager : MonoBehaviour
     {
         if (wasOddOne)
         {
-            CalculateAndAddScore(); // Calculate score based on time
-            StartNewRound(); // Immediate restart loop
+            int roundScore = CalculateAndAddScore(); // Calculate score and get the result
+
+            AdjustDifficulty(roundScore); // Adjust difficulty based on that result
+
+            StartNewRound(); // Start next round
         }
         else
         {
+            scoreHistory.Add(MinScorePerRound); // Treat a wrong click as a "bad round" for difficulty
             _currentScore -= WrongClickPenalty; // Apply penalty
             UpdateScoreUI();
             Debug.Log("WRONG CLICK! Penalty applied.");
@@ -149,7 +164,7 @@ public class GameManager : MonoBehaviour
     }
 
     // Scoring Logic
-    private void CalculateAndAddScore()
+    private int CalculateAndAddScore()
     {
         float TimeTaken = Time.time - _roundStartTime;
 
@@ -179,6 +194,8 @@ public class GameManager : MonoBehaviour
         {
             Debug.Log($"Reacted in {TimeTaken}s. Score: {finalRoundScore}");
         }
+
+        return finalRoundScore;
     }
 
     private void UpdateScoreUI()
@@ -197,5 +214,49 @@ public class GameManager : MonoBehaviour
             Destroy(tile);
         }
         _activeTiles.Clear();
+    }
+
+    // Called at the end of a round to adjust difficulty for the next one
+    private void AdjustDifficulty(int latestRoundScore)
+    {
+        // Add latest score to history
+        scoreHistory.Add(latestRoundScore);
+
+        // Keep history at the defined size (remove oldest if too big)
+        if (scoreHistory.Count > historySize)
+        {
+            scoreHistory.RemoveAt(0);
+        }
+
+        // Need enough history to make a decision
+        if (scoreHistory.Count < historySize) return;
+
+        // Calculate Average Score
+        float averageScore = 0f;
+        foreach (int score in scoreHistory)
+        {
+            averageScore += score;
+        }
+        averageScore /= scoreHistory.Count;
+
+        Debug.Log($"Current Average Score (last {historySize} rounds): {averageScore}");
+
+        // Adjust Difficulty based on average
+        if (averageScore >= thresholdsScoreHigh)
+        {
+            // Doing well: Make it harder (decrease duration)
+            TileFadeDuration = Mathf.Max(minFadeDuration, TileFadeDuration - difficultyStep);
+            Debug.Log("Difficulty Increased! New fade duration: " + TileFadeDuration);
+            // Optional: Clear history so we don't double-penalize straight away
+            scoreHistory.Clear();
+        }
+        else if (averageScore <= thresholdScoreLow)
+        {
+            // Struggling: Make it easier (increase duration)
+            TileFadeDuration = Mathf.Min(maxFadeDuration, TileFadeDuration + difficultyStep);
+            Debug.Log("Difficulty Decreased. New fade duration: " + TileFadeDuration);
+            // Optional: Clear history
+            scoreHistory.Clear();
+        }
     }
 }
