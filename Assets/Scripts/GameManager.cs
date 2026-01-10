@@ -26,8 +26,9 @@ public class GameManager : MonoBehaviour
     public Color OddColor = Color.red;
 
     [Header("Rotation Rule Settings")]
-    public float normalRotation = 0f;
-    public float oddRotation = 45f;
+    public float minRotationAngle = 0f;
+    public float maxRotationAngle = 90f;
+    public float minRotationDifference = 30f; // Minimum gap required between normal and odd
 
     [Header("Scoring Settings")]
     public int BaseScorePerRound = 100; // Max points for instant click
@@ -55,9 +56,44 @@ public class GameManager : MonoBehaviour
 
         // Pick a random rule for this round. Random.value returns between 0.0 and 1.0. 50/50 chance.
         currentRoundRule = (Random.value > 0.5f) ? RuleType.ColorDifference : RuleType.RotationDifference;
+        Debug.Log("Starting new round with rule: " + currentRoundRule); // Debug log to help us test
 
-        // Debug log to help us test
-        Debug.Log("Starting new round with rule: " + currentRoundRule);
+
+        // ---ROTATION LOGIC START---
+        // We need to define these variables outside the loop
+        float generatedNormalAngle = 0f;
+        float generatedOddAngle = 0f;
+
+        // Only do the math if it's actually a rotation round
+        if (currentRoundRule == RuleType.RotationDifference)
+        {
+            // Generate the first angle randomly within range
+            float angleA = Random.Range(minRotationAngle, maxRotationAngle);
+            float angleB = angleA;
+
+            // Generate the second angle. If it's too close to angleA, try again.
+            // We use a loop to ensure they are distinct by at least minRotationDifference.
+            int safetyCounter = 0; // Prevent infinite loops if settings are bad
+            while (Mathf.Abs(angleA - angleB) < minRotationDifference && safetyCounter < 100)
+            {
+                angleB = Random.Range(minRotationAngle, maxRotationAngle);
+                safetyCounter++;
+            }
+
+            // Randomly assign which angle is "normal" and which is "odd"
+            if (Random.value > 0.5f)
+            {
+                generatedNormalAngle = angleA;
+                generatedOddAngle = angleB;
+            }
+            else
+            {
+                generatedNormalAngle = angleB;
+                generatedOddAngle = angleA;
+            }
+            Debug.Log($"Rotation Round. Normal Angle: {generatedNormalAngle}, Odd Angle: {generatedOddAngle}");
+        }
+        // ---ROTATION LOGIC END---
 
         // Decide which index is the odd one (0 to 8)
         int oddIndex = Random.Range(0, 9);
@@ -72,7 +108,7 @@ public class GameManager : MonoBehaviour
             // Determine if this specific iteration is odd one
             bool isOdd = (i == oddIndex);
 
-            // Determine Color based on current rule
+            // Color Logic
             Color colorToUse = NormalColor;
             if (currentRoundRule == RuleType.ColorDifference)
             {
@@ -80,12 +116,12 @@ public class GameManager : MonoBehaviour
                 colorToUse = isOdd ? OddColor : NormalColor;
             }
 
-            // Determine Rotation based on current rule
-            float rotationToUse = normalRotation; 
+            // Rotation Logic
+            float rotationToUse = generatedNormalAngle;
             if (currentRoundRule == RuleType.RotationDifference)
             {
                 // If rotation rule active, check if odd
-                rotationToUse = isOdd ? oddRotation : normalRotation;
+                rotationToUse = isOdd ? generatedOddAngle : generatedNormalAngle;
             }
 
             // Pass all data to the tile
