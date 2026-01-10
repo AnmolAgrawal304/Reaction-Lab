@@ -48,20 +48,47 @@ public class GameManager : MonoBehaviour
     public int thresholdsScoreHigh = 80; // Average score above this = get harder
     public int thresholdScoreLow = 40;  // Average score below this = get easier
 
+    [Header("UI References")]
+    public Button stopButton;
+    public GameObject gameOverPanel;
+    public TMP_Text finalScoreText;
+
+    private bool isGameActive = false; // Tracks if we should accept input
+    private int roundsPlayedCount = 0; // Track stats
+
     private List<int> scoreHistory = new List<int>(); // List to store past scores
 
     private List<GameObject> _activeTiles = new List<GameObject>();
 
     private void Start()
     {
-        scoreHistory.Clear();
+        // Ensure UI is in correct starting state
+        gameOverPanel.SetActive(false);
+        stopButton.interactable = true;
+
+        SetupNewGame();
+    }
+
+    // Helper to reset everything for a fresh game
+    private void SetupNewGame()
+    {
+        isGameActive = true;
         _currentScore = 0;
-        UpdateScoreUI();    
+        roundsPlayedCount = 0;
+        scoreHistory.Clear();
+        // Reset difficulty to default for new game, Whatever your desired start speed is
+        TileFadeDuration = 2.0f; 
+
+        UpdateScoreUI();
         StartNewRound();
     }
 
     public void StartNewRound()
     {
+        if (!isGameActive) return; // Don't start rounds if game is over
+
+        roundsPlayedCount++; // Increment stat
+
         ClearGrid();
         _roundStartTime = Time.time;
 
@@ -146,6 +173,8 @@ public class GameManager : MonoBehaviour
     // Handle input received from tiles
     public void TileClicked(bool wasOddOne)
     {
+        if (!isGameActive) return; // Ignore clicks if game over
+
         if (wasOddOne)
         {
             int roundScore = CalculateAndAddScore(); // Calculate score and get the result
@@ -258,5 +287,39 @@ public class GameManager : MonoBehaviour
             // Optional: Clear history
             scoreHistory.Clear();
         }
+    }
+
+    // Linked to the "Stop Button"
+    public void OnStopButtonPressed()
+    {
+        EndGame();
+    }
+
+    // Linked to the "Restart Button" on the end panel
+    public void OnRestartButtonPressed()
+    {
+        // Hide the end panel
+        gameOverPanel.SetActive(false);
+        // Re-enable the stop button
+        stopButton.interactable = true;
+        // Start fresh
+        SetupNewGame();
+    }
+
+    // The logic that runs when the game finishes
+    private void EndGame()
+    {
+        isGameActive = false;
+        ClearGrid(); // Remove remaining tiles
+
+        // Update final UI
+        finalScoreText.text = "Final Score: " + _currentScore + "\nRounds Played: " + roundsPlayedCount;
+
+        // Show the results panel
+        gameOverPanel.SetActive(true);
+        // Disable stop button so they can't click it again
+        stopButton.interactable = false;
+
+        Debug.Log("Game Ended. Final Score: " + _currentScore);
     }
 }
