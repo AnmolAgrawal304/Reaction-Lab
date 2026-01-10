@@ -1,7 +1,12 @@
 using System.Collections.Generic;
+using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
+
+//  Different game types
+public enum RuleType { ColorDifference, RotationDifference }
+
 
 public class GameManager : MonoBehaviour
 {
@@ -13,9 +18,16 @@ public class GameManager : MonoBehaviour
     [Header("UI Game State")]
     private int _currentScore = 0;
 
+    [Header("Game Rules State")]
+    private RuleType currentRoundRule; // Tracks current rule
+
     [Header("Color Rule Settings")]
     public Color NormalColor = Color.white;
     public Color OddColor = Color.red;
+
+    [Header("Rotation Rule Settings")]
+    public float normalRotation = 0f;
+    public float oddRotation = 45f;
 
     [Header("Scoring Settings")]
     public int BaseScorePerRound = 100; // Max points for instant click
@@ -25,7 +37,7 @@ public class GameManager : MonoBehaviour
     private float _roundStartTime; // Track reaction time
 
     [Header("Difficulty Settings")]
-    public float TileFadeDuration = 1.0f; // Tiles disapper in 3 seconds
+    public float TileFadeDuration = 0.5f; // Tiles disapper in 3 seconds
 
     private List<GameObject> _activeTiles = new List<GameObject>();
 
@@ -41,6 +53,12 @@ public class GameManager : MonoBehaviour
         ClearGrid();
         _roundStartTime = Time.time;
 
+        // Pick a random rule for this round. Random.value returns between 0.0 and 1.0. 50/50 chance.
+        currentRoundRule = (Random.value > 0.5f) ? RuleType.ColorDifference : RuleType.RotationDifference;
+
+        // Debug log to help us test
+        Debug.Log("Starting new round with rule: " + currentRoundRule);
+
         // Decide which index is the odd one (0 to 8)
         int oddIndex = Random.Range(0, 9);
 
@@ -53,10 +71,25 @@ public class GameManager : MonoBehaviour
 
             // Determine if this specific iteration is odd one
             bool isOdd = (i == oddIndex);
-            Color colorToUse = isOdd ? OddColor : NormalColor;
 
-            // Setup the tile's data and visuals
-            tileScript.SetupTile(isOdd, colorToUse, this, TileFadeDuration);
+            // Determine Color based on current rule
+            Color colorToUse = NormalColor;
+            if (currentRoundRule == RuleType.ColorDifference)
+            {
+                // If color rule active, check if odd
+                colorToUse = isOdd ? OddColor : NormalColor;
+            }
+
+            // Determine Rotation based on current rule
+            float rotationToUse = normalRotation; 
+            if (currentRoundRule == RuleType.RotationDifference)
+            {
+                // If rotation rule active, check if odd
+                rotationToUse = isOdd ? oddRotation : normalRotation;
+            }
+
+            // Pass all data to the tile
+            tileScript.SetupTile(isOdd, this, TileFadeDuration, colorToUse, rotationToUse);
 
             // Keep track of it
             _activeTiles.Add(newTileObj);

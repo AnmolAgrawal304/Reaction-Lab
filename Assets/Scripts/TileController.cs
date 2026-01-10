@@ -20,14 +20,22 @@ public class TileController : MonoBehaviour
     }
 
     // Setup function called by GameManager when spawning the tile 
-    public void SetupTile(bool isOddOne, Color tileColor, GameManager gameManager, float duration)
+    public void SetupTile(bool isOddOne, GameManager gameManager, float duration, Color targetColor, float targetRotation)
     {
         _isOddOne = isOddOne;
         _gameManager = gameManager;
         _fadeDuration = duration;
 
         _tileImage = GetComponent<Image>();
-        _tileImage.color = tileColor;
+
+        // Reset state from previous rounds
+        _currentFadeTime = 0f;
+        _isFading = false;
+
+        // Apply visuals based on the passed parameters
+        _tileImage.color = targetColor;
+        // Set the Z rotation (for 2D UI)
+        transform.rotation = Quaternion.Euler(0, 0, targetRotation);
 
         if (!_isOddOne)
         {
