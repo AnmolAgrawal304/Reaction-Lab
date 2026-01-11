@@ -14,6 +14,7 @@ public class GameManager : MonoBehaviour
     public GameObject TilePrefab;
     public Transform GridContainer;
     public TMP_Text ScoreText;
+    public TMP_Text timerText;
 
     [Header("UI Game State")]
     private int _currentScore = 0;
@@ -33,7 +34,6 @@ public class GameManager : MonoBehaviour
     [Header("Scoring Settings")]
     public int BaseScorePerRound = 100; // Max points for instant click
     public int MinScorePerRound = 10; // Minimum guaranteed score if clicked late
-    public int WrongClickPenalty = 50; // Score penalty
 
     private float _roundStartTime; // Track reaction time
 
@@ -47,6 +47,13 @@ public class GameManager : MonoBehaviour
     public int historySize = 5; // How many past rounds to remember
     public int thresholdsScoreHigh = 80; // Average score above this = get harder
     public int thresholdScoreLow = 40;  // Average score below this = get easier
+
+    [Header("Time Limit Settings")]
+    public float startingTime = 60.0f; // Total game time in seconds
+    public float timePenaltyWrongClick = 5.0f; // Time lost for a mistake
+    public float timeRewardHighPerformance = 10.0f; // Time gained for doing well
+
+    private float currentTimeRemaining; // Tracks current time
 
     [Header("UI References")]
     public Button stopButton;
@@ -77,10 +84,35 @@ public class GameManager : MonoBehaviour
         roundsPlayedCount = 0;
         scoreHistory.Clear();
         // Reset difficulty to default for new game, Whatever your desired start speed is
-        TileFadeDuration = 2.0f; 
+        TileFadeDuration = 2.0f;
+        currentTimeRemaining = startingTime;
 
         UpdateScoreUI();
+        UpdateTimerUI();
         StartNewRound();
+    }
+
+    private void Update()
+    {
+        if (isGameActive)
+        {
+            currentTimeRemaining -= Time.deltaTime;
+            if (currentTimeRemaining <= 0)
+            {
+                currentTimeRemaining = 0;
+                EndGame("TIME'S UP!");
+            }
+            UpdateTimerUI();
+        }
+    }
+
+    // Function for the timer text
+    private void UpdateTimerUI()
+    {
+        if (timerText != null)
+        {
+            timerText.text = "Time: " + currentTimeRemaining.ToString();
+        }
     }
 
     public void StartNewRound()
@@ -186,9 +218,9 @@ public class GameManager : MonoBehaviour
         else
         {
             scoreHistory.Add(MinScorePerRound); // Treat a wrong click as a "bad round" for difficulty
-            _currentScore -= WrongClickPenalty; // Apply penalty
-            UpdateScoreUI();
-            Debug.Log("WRONG CLICK! Penalty applied.");
+            currentTimeRemaining = Mathf.Max(0, currentTimeRemaining - timePenaltyWrongClick);
+            Debug.Log($"Wrong click! Penalized by {timePenaltyWrongClick} seconds.");
+            UpdateTimerUI();
         }
     }
 
@@ -270,21 +302,26 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"Current Average Score (last {historySize} rounds): {averageScore}");
 
-        // Adjust Difficulty based on average
+
         if (averageScore >= thresholdsScoreHigh)
         {
             // Doing well: Make it harder (decrease duration)
             TileFadeDuration = Mathf.Max(minFadeDuration, TileFadeDuration - difficultyStep);
             Debug.Log("Difficulty Increased! New fade duration: " + TileFadeDuration);
-            // Optional: Clear history so we don't double-penalize straight away
+
+            // Grant bonus time instead:
+            currentTimeRemaining += timeRewardHighPerformance;
+            Debug.Log("*** High Performance Streak! Bonus time added: " + timeRewardHighPerformance + "s ***");
+
+
             scoreHistory.Clear();
         }
         else if (averageScore <= thresholdScoreLow)
         {
-            // Struggling: Make it easier (increase duration)
+            //Make it easier (increase duration)
             TileFadeDuration = Mathf.Min(maxFadeDuration, TileFadeDuration + difficultyStep);
             Debug.Log("Difficulty Decreased. New fade duration: " + TileFadeDuration);
-            // Optional: Clear history
+
             scoreHistory.Clear();
         }
     }
@@ -292,7 +329,7 @@ public class GameManager : MonoBehaviour
     // Linked to the "Stop Button"
     public void OnStopButtonPressed()
     {
-        EndGame();
+        EndGame("GAME STOPPED");
     }
 
     // Linked to the "Restart Button" on the end panel
@@ -307,19 +344,18 @@ public class GameManager : MonoBehaviour
     }
 
     // The logic that runs when the game finishes
-    private void EndGame()
+    private void EndGame(string reason)
     {
         isGameActive = false;
-        ClearGrid(); // Remove remaining tiles
+        ClearGrid();
 
-        // Update final UI
+        if (gameOverPanel.transform.Find("GameOverTitle") != null)
+        {
+            gameOverPanel.transform.Find("GameOverTitle").GetComponent<TMP_Text>().text = reason;
+        }
+
         finalScoreText.text = "Final Score: " + _currentScore + "\nRounds Played: " + roundsPlayedCount;
-
-        // Show the results panel
         gameOverPanel.SetActive(true);
-        // Disable stop button so they can't click it again
         stopButton.interactable = false;
-
-        Debug.Log("Game Ended. Final Score: " + _currentScore);
     }
 }
