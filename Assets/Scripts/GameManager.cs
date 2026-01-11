@@ -59,9 +59,13 @@ public class GameManager : MonoBehaviour
     public Button stopButton;
     public GameObject gameOverPanel;
     public TMP_Text finalScoreText;
+    public TMP_Text accuracyText;
 
     private bool isGameActive = false; // Tracks if we should accept input
-    private int roundsPlayedCount = 0; // Track stats
+    // Track stats
+    private int roundsPlayedCount = 0; 
+    private int totalClicks = 0;
+    private int correctClicks = 0;
 
     private List<int> scoreHistory = new List<int>(); // List to store past scores
 
@@ -82,6 +86,8 @@ public class GameManager : MonoBehaviour
         isGameActive = true;
         _currentScore = 0;
         roundsPlayedCount = 0;
+        totalClicks = 0;
+        correctClicks = 0;
         scoreHistory.Clear();
         // Reset difficulty to default for new game, Whatever your desired start speed is
         TileFadeDuration = 2.0f;
@@ -111,7 +117,8 @@ public class GameManager : MonoBehaviour
     {
         if (timerText != null)
         {
-            timerText.text = "Time: " + currentTimeRemaining.ToString();
+            int secondsLeft = (int)currentTimeRemaining;
+            timerText.text = "Time: " + secondsLeft.ToString();
         }
     }
 
@@ -207,8 +214,12 @@ public class GameManager : MonoBehaviour
     {
         if (!isGameActive) return; // Ignore clicks if game over
 
+        totalClicks++;
+
         if (wasOddOne)
         {
+            correctClicks++;
+
             int roundScore = CalculateAndAddScore(); // Calculate score and get the result
 
             AdjustDifficulty(roundScore); // Adjust difficulty based on that result
@@ -355,6 +366,20 @@ public class GameManager : MonoBehaviour
         }
 
         finalScoreText.text = "Final Score: " + _currentScore + "\nRounds Played: " + roundsPlayedCount;
+
+
+        float accuracyPercentage = 0f;
+        if (totalClicks > 0)
+        {
+            accuracyPercentage = ((float)correctClicks / (float)totalClicks) * 100f;
+        }
+
+        if (accuracyText != null)
+        {
+            accuracyText.text = "Accuracy: " + accuracyPercentage.ToString() + "%";
+        }
+
+
         gameOverPanel.SetActive(true);
         stopButton.interactable = false;
     }
